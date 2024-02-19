@@ -51,8 +51,7 @@ func (s *APIServer) handleGetAccount(w http.ResponseWriter, r *http.Request) err
 		fmt.Printf("Retrieved account: ID: %d, First Name: %s, Last Name: %s\n", acc.ID, acc.FirstName, acc.LastName)
 	}
 
-	w.WriteHeader(http.StatusOK)
-	return json.NewEncoder(w).Encode(accounts)
+	return WriteJSON(w, http.StatusOK, accounts)
 }
 
 func (s *APIServer) handleGetAccountByID(w http.ResponseWriter, r *http.Request) error {
@@ -67,8 +66,7 @@ func (s *APIServer) handleGetAccountByID(w http.ResponseWriter, r *http.Request)
 			return err
 		}
 
-		w.WriteHeader(http.StatusOK)
-		return json.NewEncoder(w).Encode(account)
+		return WriteJSON(w, http.StatusOK, account)
 	}
 
 	if r.Method == "DELETE" {
@@ -97,8 +95,9 @@ func (s *APIServer) handleCreateAccount(w http.ResponseWriter, r *http.Request) 
 	}
 
 	fmt.Printf("created account: %+v\n", account)
-	w.WriteHeader(http.StatusCreated)
-	return json.NewEncoder(w).Encode(account)
+
+	return WriteJSON(w, http.StatusCreated, account)
+
 }
 
 func (s *APIServer) handleDeleteAccount(w http.ResponseWriter, r *http.Request) error {
@@ -111,6 +110,7 @@ func (s *APIServer) handleTransfer(w http.ResponseWriter, r *http.Request) error
 
 func WriteJSON(w http.ResponseWriter, status int, v any) error {
 	w.Header().Add("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	return json.NewEncoder(w).Encode(v)
 }

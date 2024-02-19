@@ -27,6 +27,7 @@ func NewAPIServer(listenAddr string, store Storage) *APIServer {
 func (s *APIServer) Run() {
 	router := mux.NewRouter()
 
+	router.HandleFunc("/login", makeHTTPHandleFunc(s.handleLogin))
 	router.HandleFunc("/account", makeHTTPHandleFunc(s.handleAccount))
 	router.HandleFunc("/account/{id}", withJWTAuth(makeHTTPHandleFunc(s.handleGetAccountByID), s.store))
 	router.HandleFunc("/transfer", makeHTTPHandleFunc(s.handleTransfer))
@@ -34,6 +35,19 @@ func (s *APIServer) Run() {
 	log.Println("JSON API server running on port: ", s.listenAddr)
 
 	http.ListenAndServe(s.listenAddr, router)
+}
+
+func (s *APIServer) handleLogin(w http.ResponseWriter, r *http.Request) error {
+	if r.Method != "POST" {
+		return fmt.Errorf("method not allowed %s", r.Method)
+	}
+
+	var req LoginRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		return err
+	}
+
+	return WriteJSON(w, http.StatusOK, req)
 }
 
 func (s *APIServer) handleTransfer(w http.ResponseWriter, r *http.Request) error {
@@ -114,7 +128,7 @@ func (s *APIServer) handleCreateAccount(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// create a new account using the data from the request
-	account := NewAccount(createAccountReq.FirstName, createAccountReq.LastName)
+	account, _ := NewAccount(createAccountReq.FirstName, createAccountReq.LastName, createAccountReq.Email, createAccountReq.Password)
 
 	// use the store CreateAccount method to persist the account in the database
 	if err := s.store.CreateAccount(account); err != nil {
@@ -206,18 +220,6 @@ func createJWT(account *Account) (string, error) {
 
 	return token.SignedString([]byte(secret))
 }
-
-//func createJWT(account *Account) (string, error) {
-//	claims := &jwt.MapClaims{
-//		"expiresAt":     jwt.NewNumericDate(time.Unix(1516239022, 0)),
-//		"accountNumber": account.Number,
-//	}
-//
-//	secret := os.Getenv("JWT_SECRET")
-//	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-//
-//	return token.SignedString([]byte(secret))
-//}
 
 func WriteJSON(w http.ResponseWriter, status int, v any) error {
 	w.Header().Add("Content-Type", "application/json")

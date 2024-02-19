@@ -18,6 +18,7 @@ const (
 type Storage interface {
 	GetAccounts() ([]*Account, error)
 	GetAccountByID(int) (*Account, error)
+	GetAccountByEmail(string)
 	CreateAccount(*Account) error
 	UpdateAccount(*Account) error
 	DeleteAccount(int) error

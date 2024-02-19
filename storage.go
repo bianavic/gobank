@@ -55,8 +55,7 @@ func (s *PostgreSQLStore) Init() error {
 }
 
 func (s *PostgreSQLStore) createAccountTable() error {
-	query := `
-create table if not exists account (
+	query := `create table if not exists account (
 		id serial primary key,
 		first_name varchar(50),
 		last_name varchar(50),
@@ -117,7 +116,29 @@ func (s *PostgreSQLStore) GetAccounts() ([]*Account, error) {
 }
 
 func (s *PostgreSQLStore) GetAccountByID(id int) (*Account, error) {
-	return nil, nil
+
+	query := "SELECT * FROM account WHERE id = $1"
+	row := s.db.QueryRow(query, id)
+
+	account := &Account{}
+	err := row.Scan(
+		&account.ID,
+		&account.FirstName,
+		&account.LastName,
+		&account.Number,
+		&account.Balance,
+		&account.CreatedAt,
+	)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("account %d not found", id)
+		}
+		return nil, err
+	}
+
+	return account, nil
+
 }
 
 func (s *PostgreSQLStore) UpdateAccount(*Account) error {

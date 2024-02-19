@@ -93,12 +93,14 @@ func (s *PostgreSQLStore) CreateAccount(acc *Account) error {
 func (s *PostgreSQLStore) GetAccounts() ([]*Account, error) {
 	rows, err := s.db.Query("SELECT * FROM account")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error fetching accounts: %w", err)
 	}
 
+	// create an empty slice to store actual accounts
 	accounts := []*Account{}
+
 	for rows.Next() {
-		account := new(Account)
+		account := &Account{}
 		err := rows.Scan(
 			&account.ID,
 			&account.FirstName,
@@ -108,8 +110,9 @@ func (s *PostgreSQLStore) GetAccounts() ([]*Account, error) {
 			&account.CreatedAt,
 		)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error scanning row: %w", err)
 		}
+		// append the scanned account to the slice
 		accounts = append(accounts, account)
 	}
 	return accounts, nil

@@ -43,13 +43,14 @@ func (s *APIServer) handleAccount(w http.ResponseWriter, r *http.Request) error 
 }
 
 func (s *APIServer) handleGetAccount(w http.ResponseWriter, r *http.Request) error {
-	if r.Method != http.MethodGet {
-		return fmt.Errorf("method not allowed %s", r.Method)
-	}
 	accounts, err := s.store.GetAccounts()
 	if err != nil {
 		return err
 	}
+	for _, acc := range accounts {
+		fmt.Printf("Retrieved account: ID: %d, First Name: %s, Last Name: %s\n", acc.ID, acc.FirstName, acc.LastName)
+	}
+
 	w.WriteHeader(http.StatusOK)
 	return json.NewEncoder(w).Encode(accounts)
 }

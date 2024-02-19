@@ -135,7 +135,9 @@ func (s *PostgreSQLStore) UpdateAccount(*Account) error {
 }
 
 func (s *PostgreSQLStore) DeleteAccount(id int) error {
-	return nil
+	query := "DELETE FROM account WHERE id = $1"
+	_, err := s.db.Query(query, id)
+	return err
 }
 
 func scanIntoAccount(rows *sql.Rows) (*Account, error) {

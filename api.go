@@ -101,7 +101,16 @@ func (s *APIServer) handleCreateAccount(w http.ResponseWriter, r *http.Request) 
 }
 
 func (s *APIServer) handleDeleteAccount(w http.ResponseWriter, r *http.Request) error {
-	return nil
+	id, err := getID(r)
+	if err != nil {
+		return err
+	}
+
+	if err := s.store.DeleteAccount(id); err != nil {
+		return err
+	}
+
+	return WriteJSON(w, http.StatusOK, map[string]int{"deleted": id})
 }
 
 func (s *APIServer) handleTransfer(w http.ResponseWriter, r *http.Request) error {
@@ -118,7 +127,7 @@ func WriteJSON(w http.ResponseWriter, status int, v any) error {
 type apiFunc func(http.ResponseWriter, *http.Request) error
 
 type ApiError struct {
-	Error string
+	Error string `json:"error"`
 }
 
 func makeHTTPHandleFunc(f apiFunc) http.HandlerFunc {

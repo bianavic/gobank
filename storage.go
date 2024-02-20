@@ -87,8 +87,6 @@ func (s *PostgreSQLStore) CreateAccount(acc *Account) error {
 		acc.EncryptedPassword,
 		acc.Email)
 
-	//_, err = s.db.Exec(query, acc.FirstName, acc.LastName, acc.Number, acc.Balance, acc.CreatedAt, acc.EncryptedPassword, acc.Email)
-
 	if err != nil {
 		return err
 	}
@@ -166,6 +164,9 @@ func (s *PostgreSQLStore) UpdateAccount(*Account) error {
 func (s *PostgreSQLStore) DeleteAccount(id int) error {
 	query := "DELETE FROM account WHERE id = $1"
 	_, err := s.db.Query(query, id)
+
+	fmt.Printf("query %s and id %d", query, id)
+
 	return err
 }
 

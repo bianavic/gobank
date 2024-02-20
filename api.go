@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/golang-jwt/jwt/v5"
@@ -95,7 +96,7 @@ func (s *APIServer) handleGetAccount(w http.ResponseWriter, r *http.Request) err
 		return err
 	}
 	for _, acc := range accounts {
-		fmt.Printf("Retrieved account: ID: %d, First Name: %s, Last Name: %s\n", acc.ID, acc.FirstName, acc.LastName)
+		fmt.Printf("Retrieved account: ID: %d\n", acc.ID)
 	}
 
 	return WriteJSON(w, http.StatusOK, accounts)
@@ -124,16 +125,26 @@ func (s *APIServer) handleGetAccountByID(w http.ResponseWriter, r *http.Request)
 }
 
 func (s *APIServer) handleDeleteAccount(w http.ResponseWriter, r *http.Request) error {
-	id, err := getID(r)
+
+	// retrieve user ID from context as an interface{}
+	userIDInterface := r.Context().Value("userID")
+
+	// assert that the retrieved value is an integer
+	userID, ok := userIDInterface.(int)
+	if !ok {
+		return fmt.Errorf("invalid user ID type in context: %T", userIDInterface)
+		//return fmt.Errorf("permission denied: you are not allowed to delete this account")
+	} else if userID == 0 {
+		return WriteJSON(w, http.StatusBadRequest, "permission denied: you are not allowed to delete this account")
+	}
+
+	// safely use the userID as an int
+	err := s.store.DeleteAccount(userID)
 	if err != nil {
 		return err
 	}
 
-	if err := s.store.DeleteAccount(id); err != nil {
-		return err
-	}
-
-	return WriteJSON(w, http.StatusOK, map[string]int{"deleted": id})
+	return WriteJSON(w, http.StatusOK, map[string]interface{}{"deleted": userID})
 }
 
 func (s *APIServer) handleCreateAccount(w http.ResponseWriter, r *http.Request) error {
@@ -178,6 +189,10 @@ func withJWTAuth(handlerFunc http.HandlerFunc, s Storage) http.HandlerFunc {
 
 		tokenString := r.Header.Get("x-jwt-token")
 		token, err := validateJWT(tokenString)
+
+		fmt.Printf("token: %+v\n", token)
+		fmt.Printf("tokenStr: %+v\n", tokenString)
+
 		if err != nil {
 			permissionDenied(w)
 			return
@@ -193,6 +208,11 @@ func withJWTAuth(handlerFunc http.HandlerFunc, s Storage) http.HandlerFunc {
 			return
 		}
 
+		if userID == 0 { // handle missing user ID specifically
+			WriteJSON(w, http.StatusBadRequest, "missing user ID in token")
+			return
+		}
+
 		account, err := s.GetAccountByID(userID)
 		if err != nil {
 			permissionDenied(w)
@@ -204,6 +224,9 @@ func withJWTAuth(handlerFunc http.HandlerFunc, s Storage) http.HandlerFunc {
 			permissionDenied(w)
 			return
 		}
+
+		userID = int(claims["id"].(float64)) // ensure claim exists and is float64
+		r = r.WithContext(context.WithValue(r.Context(), "userID", userID))
 
 		if err != nil {
 			WriteJSON(w, http.StatusForbidden, ApiError{Error: "invalid token"})
@@ -225,8 +248,6 @@ func validateJWT(tokenString string) (*jwt.Token, error) {
 		return []byte(secret), nil
 	})
 }
-
-// JWT_TOKEN:  eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2NvdW50TnVtYmVyIjozMTUyNjcsImV4cGlyZXNBdCI6MTUxNjIzOTAyMn0.Vy0k-xWijVAEo5ogbCAhVS3i9hN66wq0_JHjuEdQSD0
 
 func createJWT(account *Account) (string, error) {
 	claims := &jwt.MapClaims{

@@ -47,7 +47,26 @@ func (s *APIServer) handleLogin(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	return WriteJSON(w, http.StatusOK, req)
+	acc, err := s.store.GetAccountByEmail(string(req.Email))
+	if err != nil {
+		return err
+	}
+
+	if !acc.ValidPassword(req.Password) {
+		return fmt.Errorf("not authenticated")
+	}
+
+	token, err := createJWT(acc)
+	if err != nil {
+		return err
+	}
+
+	response := LoginResponse{
+		Token: token,
+		Email: acc.Email,
+	}
+
+	return WriteJSON(w, http.StatusOK, response)
 }
 
 func (s *APIServer) handleTransfer(w http.ResponseWriter, r *http.Request) error {
@@ -213,6 +232,8 @@ func createJWT(account *Account) (string, error) {
 	claims := &jwt.MapClaims{
 		"expiresAt":     jwt.NewNumericDate(time.Unix(1516239022, 0)),
 		"accountNumber": account.Number,
+		"email":         account.Email,
+		"id":            account.ID,
 	}
 
 	secret := os.Getenv("JWT_SECRET")

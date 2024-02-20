@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	_ "github.com/lib/pq"
+	"time"
 )
 
 const (
@@ -18,7 +19,7 @@ const (
 type Storage interface {
 	GetAccounts() ([]*Account, error)
 	GetAccountByID(int) (*Account, error)
-	GetAccountByEmail(string)
+	GetAccountByEmail(email string) (*Account, error)
 	CreateAccount(*Account) error
 	UpdateAccount(*Account) error
 	DeleteAccount(int) error
@@ -58,13 +59,14 @@ func (s *PostgreSQLStore) Init() error {
 
 func (s *PostgreSQLStore) createAccountTable() error {
 	query := `create table if not exists account (
-		id serial primary key,
-		first_name varchar(50),
-		last_name varchar(50),
-		number serial,
-		balance serial,
-		created_at timestamp
-	)`
+	id serial primary key,
+	first_name varchar(50),
+	last_name varchar(50),
+    number serial,
+	balance serial,
+	created_at timestamp,
+	encrypted_password varchar(100),
+    email varchar(255))`
 
 	_, err := s.db.Exec(query)
 	return err
@@ -72,8 +74,8 @@ func (s *PostgreSQLStore) createAccountTable() error {
 
 func (s *PostgreSQLStore) CreateAccount(acc *Account) error {
 	query := `insert into account
-	(first_name, last_name, number, balance, created_at)
-	values ($1, $2, $3, $4, $5)`
+	(first_name, last_name, number, balance, created_at, encrypted_password, email)
+	values ($1, $2, $3, $4, $5, $6, $7)`
 
 	resp, err := s.db.Query(
 		query,
@@ -81,7 +83,11 @@ func (s *PostgreSQLStore) CreateAccount(acc *Account) error {
 		acc.LastName,
 		acc.Number,
 		acc.Balance,
-		acc.CreatedAt)
+		acc.CreatedAt,
+		acc.EncryptedPassword,
+		acc.Email)
+
+	//_, err = s.db.Exec(query, acc.FirstName, acc.LastName, acc.Number, acc.Balance, acc.CreatedAt, acc.EncryptedPassword, acc.Email)
 
 	if err != nil {
 		return err
@@ -131,6 +137,28 @@ func (s *PostgreSQLStore) GetAccountByID(id int) (*Account, error) {
 	return nil, fmt.Errorf("account %d not found", id)
 }
 
+func (s *PostgreSQLStore) GetAccountByEmail(email string) (*Account, error) {
+
+	query := "SELECT * FROM account WHERE email = $1"
+	rows, err := s.db.Query(query, email)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	for rows.Next() {
+		account, err := scanIntoAccount(rows)
+		if err != nil {
+			return nil, err
+		}
+		return account, nil
+	}
+
+	return nil, fmt.Errorf("email account %s not found", email)
+}
+
 func (s *PostgreSQLStore) UpdateAccount(*Account) error {
 	return nil
 }
@@ -143,6 +171,7 @@ func (s *PostgreSQLStore) DeleteAccount(id int) error {
 
 func scanIntoAccount(rows *sql.Rows) (*Account, error) {
 	account := &Account{}
+	var createdAt time.Time
 	err := rows.Scan(
 		&account.ID,
 		&account.FirstName,
@@ -150,7 +179,10 @@ func scanIntoAccount(rows *sql.Rows) (*Account, error) {
 		&account.Number,
 		&account.Balance,
 		&account.CreatedAt,
+		&account.EncryptedPassword,
+		&account.Email,
 	)
+	account.CreatedAt = createdAt
 
 	return account, err
 }
